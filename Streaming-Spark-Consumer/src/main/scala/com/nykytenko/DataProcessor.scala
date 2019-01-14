@@ -1,18 +1,16 @@
 package com.nykytenko
 
-import com.nykytenko.HelperClasses.{EventCount, Ip, LogEvent}
+import cats.effect.Effect
+import com.nykytenko.HelperClasses._
 import com.nykytenko.config.SparkConfig
-import org.apache.kafka.clients.consumer.ConsumerRecord
-import org.apache.spark.sql.{DataFrame, Dataset, ForeachWriter, SparkSession}
-import org.apache.spark.streaming.dstream.{DStream, InputDStream}
+import org.apache.spark.sql.{Dataset, SparkSession}
+import org.apache.spark.streaming.dstream.DStream
 import org.apache.spark.streaming.{Minutes, Seconds}
-import io.circe.syntax._
-import io.circe.generic.auto._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
+import cats.implicits._
 
-
-case class DataProcessor(conf: SparkConfig, ss: SparkSession) {
+case class DataProcessor[F[_]](conf: SparkConfig, ss: SparkSession)(implicit E: Effect[F]) extends Serializable {
 
   val schema: StructType = StructType(Seq(
     StructField("unix_time"   , TimestampType , nullable = true),
@@ -29,31 +27,22 @@ case class DataProcessor(conf: SparkConfig, ss: SparkSession) {
                                 views = e1.views + e2.views,
                                 category_ids = e1.category_ids ++ e2.category_ids
                               )
-  }
+}
 
-  def process1()(stream: InputDStream[ConsumerRecord[String, String]]): DStream[(Ip, EventCount)] = {
-    stream.map { s =>
-      s.value().asJson.as[LogEvent].toOption
-    }
-      .filter(_.isDefined).map(elOpt => (elOpt.get.ip, elOpt.get.toEventCount))
+  def process1()(stream: DStream[(Ip, EventCount)]): F[DStream[(Ip, EventCount)]] = E.delay {
+    stream
       .reduceByKeyAndWindow(aggregateFunc, Minutes(10), Seconds(60))
       .cache()
   }
 
-  def process2()(stream: DataFrame): Dataset[EventCount] = {
+  def process2()(stream: Dataset[EventCountWithTimestamp]): F[Dataset[EventCount]] = E.delay {
     import ss.implicits._
 
     stream
-      .select("value")
-      .as[String]
-      .filter(x => !x.isEmpty)
-      .select(from_json($"value".cast(StringType), schema).as("parsed_json"))
-      .select("parsed_json.*")
-      .as[LogEvent]
-      .map(x => x.toEventCount)
       .withWatermark("unix_time", s"${conf.windowSize} seconds")
-      .groupBy(
-        window($"unix_time", "10 minutes", "5 minutes"))
+      .groupBy($"ip",
+        window($"unix_time", s"${conf.windowSize} minutes", s"${conf.sliceSize} minutes")
+      )
       .agg(
         count("*").as("events"),
         sum("clicks").as("clicks"),

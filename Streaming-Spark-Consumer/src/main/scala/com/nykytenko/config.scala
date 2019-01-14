@@ -6,8 +6,8 @@ import pureconfig.error.ConfigReaderException
 
 package object config {
 
-  case class SparkConfig(name: String, master: String, windowSize: Int, sliceSize: Int,
-                         eventRate: Int, clickViewRate: Int, categoriesRate: Int, batchSize: Int)
+  case class SparkConfig(name: String, master: String, windowSize: String, sliceSize: String,
+                         eventRate: Int, clickViewRate: Int, categoriesRate: Int, batchSize: Long)
 
   case class KafkaConfig(host: String, groupId: String, topic: String)
 
@@ -15,7 +15,7 @@ package object config {
 
   case class LookupConfig(host: String, port: Int, ttl: Long, name: String)
 
-  case class RegistryConfig(host: String, port: Int, ttl: Long, name: String)
+  case class RegistryConfig(path: String, host: String, port: Int, ttl: Long, name: String)
 
   case class AppConfig(spark: SparkConfig, kafka: KafkaConfig, db: DbConfig)
 
