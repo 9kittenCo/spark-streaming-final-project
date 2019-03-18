@@ -10,14 +10,11 @@ object Main {
   val logger: Logger = LoggerFactory.getLogger(Main.getClass)
 
   def main(args: Array[String]): Unit = {
-    val mST   = Map[String, BotDetection](
+    val mST: Map[String, BotDetection] = Map[String, BotDetection](
       "dstream" -> BotDetectionV1,
               "sstream" -> BotDetectionV2
               )
     val name = args.headOption.getOrElse("dstream").toString.toLowerCase.trim
-
-    logger.info(mST(name).toString)
-
 
     if (args.length != 1) logger.error("Wrong number of parameters!")
     else if (mST.isDefinedAt(name)) {

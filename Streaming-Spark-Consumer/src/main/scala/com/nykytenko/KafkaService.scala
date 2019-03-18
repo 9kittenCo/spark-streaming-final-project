@@ -1,6 +1,7 @@
 package com.nykytenko
 
 import java.sql.Timestamp
+import java.time.LocalDateTime
 
 import cats.effect.Effect
 import com.nykytenko.HelperClasses.{EventCount, EventCountWithTimestamp, Ip, LogEvent}
@@ -10,15 +11,16 @@ import org.apache.kafka.common.serialization.StringDeserializer
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
-import org.apache.spark.streaming.StreamingContext
+import org.apache.spark.streaming._
 import org.apache.spark.streaming.dstream.DStream
-import org.apache.spark.streaming.kafka010.{ConsumerStrategies, KafkaUtils, LocationStrategies, LocationStrategy}
+import org.apache.spark.streaming.kafka010._
 import cats.implicits._
 import io.circe.Decoder.Result
 import io.circe._
 import io.circe.syntax._
 import io.circe.generic.semiauto._
 import io.circe.generic.auto._
+import org.apache.spark.sql.catalyst.plans.logical.Window
 
 case class KafkaService[F[_]](config: KafkaConfig)(implicit E: Effect[F]) extends Serializable {
 
@@ -52,7 +54,7 @@ case class KafkaService[F[_]](config: KafkaConfig)(implicit E: Effect[F]) extend
     )
   }
 
-  def createDStreamFromKafka(ssc: StreamingContext): F[DStream[(Ip, EventCount)]] = E.delay {
+  def createDStreamFromKafka(ssc: StreamingContext): F[DStream[LogEvent]] = E.delay {
     KafkaUtils.createDirectStream[String, String](
       ssc,
       preferredHosts,
@@ -65,8 +67,7 @@ case class KafkaService[F[_]](config: KafkaConfig)(implicit E: Effect[F]) extend
         override def apply(c: HCursor): Result[Timestamp] = Decoder.decodeLong.map(s => new Timestamp(s)).apply(c)
       }
       x.value().asJson.as[LogEvent].toOption
-    }.filter(_.isDefined)
-      .map(elOpt => (elOpt.get.ip, elOpt.get.toEventCount))
+    }.filter(_.isDefined).map(_.get)
   }
 
   def createStreamFromKafka(ss: SparkSession): F[Dataset[EventCountWithTimestamp]] = E.delay {

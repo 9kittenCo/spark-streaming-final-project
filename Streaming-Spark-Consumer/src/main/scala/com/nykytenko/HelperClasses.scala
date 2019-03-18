@@ -26,7 +26,7 @@ package object HelperClasses {
 
   trait EventCountT extends Product with Serializable
 
-  case class EventCount(ip: Ip, events: Long, clicks: Long, views: Long, category_ids: Set[Long]) extends EventCountT {
+  case class EventCount(ip: Ip, events: Long = 0L, clicks: Long = 0L, views: Long = 0L, category_ids: Set[Long] = Set.empty[Long]) extends EventCountT {
     override def toString: String = s"ip: $ip, event rate: $events, clicks: $clicks, views: $views, categories: ${category_ids.size}"
   }
 

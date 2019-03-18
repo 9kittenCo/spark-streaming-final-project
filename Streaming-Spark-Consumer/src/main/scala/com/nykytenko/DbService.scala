@@ -1,6 +1,7 @@
 package com.nykytenko
 
 import java.sql._
+import java.time.LocalDateTime
 
 import cats.effect.Effect
 import com.redislabs.provider.redis.toRedisContext
@@ -22,7 +23,7 @@ import scala.Array
 
 case object DbService {
 
-  def persist1()(stream: DStream[(Ip, EventCount)])(implicit conf: AppConfig, ss: SparkSession, ssc: StreamingContext): Unit = {
+  def persist1()(stream: DStream[((Ip, LocalDateTime), EventCount)])(implicit conf: AppConfig, ss: SparkSession, ssc: StreamingContext): Unit = {
 
     val lookup: config.LookupConfig     = conf.db.lookup
     val registry: config.RegistryConfig = conf.db.registry
@@ -57,7 +58,7 @@ case object DbService {
 
   }
 
-  def filterStream1(stream: DStream[(Ip, EventCount)])(implicit conf: AppConfig): DStream[(Ip, EventCount)] =
+  def filterStream1(stream: DStream[((Ip, LocalDateTime), EventCount)])(implicit conf: AppConfig): DStream[((Ip, LocalDateTime), EventCount)] =
     stream.filter { x =>
       val checkEventRate:       EventCount => Int = x => if (x.events > conf.spark.eventRate) 1 else 0
       val checkClickViewRate:   EventCount => Int = x => if (x.views == 0 || x.clicks / x.views > conf.spark.clickViewRate) 1 else 0
@@ -67,15 +68,15 @@ case object DbService {
     }
 
   def filterStream2(stream: Dataset[EventCount])(implicit conf: AppConfig): Dataset[EventCount] =
-    stream.filter { x =>
+    stream.filter {
       val checkEventRate:       EventCount => Int = x => if (x.events > conf.spark.eventRate) 1 else 0
       val checkClickViewRate:   EventCount => Int = x => if (x.views == 0 || x.clicks / x.views > conf.spark.clickViewRate) 1 else 0
       val checkCategoriesRate:  EventCount => Int = x => if (x.category_ids.size > conf.spark.categoriesRate) 1 else 0
 
-      (checkEventRate(x) + checkClickViewRate(x) + checkCategoriesRate(x)) > 0
+      x => (checkEventRate(x) + checkClickViewRate(x) + checkCategoriesRate(x)) > 0
     }
 
-  private def write1(stream: DStream[(Ip, EventCount)], name: String, ttl: Long) //, offsetRanges: Array[OffsetRange]
+  private def write1(stream: DStream[((Ip, LocalDateTime), EventCount)], name: String, ttl: Long) //, offsetRanges: Array[OffsetRange]
                     (implicit ss: SparkSession): Unit = {
     stream
       .map(x => x._2.toString)

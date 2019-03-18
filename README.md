@@ -11,15 +11,7 @@ docker run --rm -it -v "$(pwd)":/data --net=host landoop/fast-data-dev bash
 ```
 
 ## Setup Kafka Connect
-3. Build Spooldir connector
-
-```bash
-git clone https://github.com/jcustenborder/kafka-connect-spooldir
-cd kafka-connect-spooldir
-mvn clean package -DskipTests
-
-export CLASSPATH="target/kafka-connect-target/usr/share/kafka-connect/kafka-connect-spooldir/*"
-```
+3. Build connector
 
 ## Setup Kafka
 4. Create topic in kafka with 3 partitions
